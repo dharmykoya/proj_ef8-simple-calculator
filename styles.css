@@ -98,7 +98,7 @@ body {
   font-weight: 500;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease;
   border: none;
   color: var(--text-color);
   background-color: var(--button-bg);
@@ -106,18 +106,26 @@ body {
   line-height: 1;
 }
 
-.btn:hover {
-  transform: scale(1.05);
-  background-color: var(--button-hover);
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Fallback for browsers that do not support :focus-visible */
+.btn:focus:not(:focus-visible) {
+  outline: none;
 }
 
 .btn:active {
   transform: scale(0.95);
 }
 
-.btn:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+/* Hover states scoped to pointer devices only — prevents stuck hover on touch screens */
+@media (hover: hover) {
+  .btn:hover {
+    transform: scale(1.05);
+    background-color: var(--button-hover);
+  }
 }
 
 .btn-operator {
@@ -125,9 +133,11 @@ body {
   color: #fff;
 }
 
-.btn-operator:hover {
-  background-color: #c2410c;
-  transform: scale(1.05);
+@media (hover: hover) {
+  .btn-operator:hover {
+    background-color: #c2410c;
+    transform: scale(1.05);
+  }
 }
 
 .btn-action {
@@ -135,9 +145,11 @@ body {
   color: #fff;
 }
 
-.btn-action:hover {
-  background-color: #6d28d9;
-  transform: scale(1.05);
+@media (hover: hover) {
+  .btn-action:hover {
+    background-color: #6d28d9;
+    transform: scale(1.05);
+  }
 }
 
 .btn-equals {
@@ -146,9 +158,11 @@ body {
   grid-row: span 2;
 }
 
-.btn-equals:hover {
-  background-color: #15803d;
-  transform: scale(1.05);
+@media (hover: hover) {
+  .btn-equals:hover {
+    background-color: #15803d;
+    transform: scale(1.05);
+  }
 }
 
 .btn-zero {

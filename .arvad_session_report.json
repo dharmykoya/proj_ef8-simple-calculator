@@ -1,15 +1,19 @@
 {
-  "files_created": [],
-  "files_modified": [".gitignore", "README.md"],
+  "files_created": ["index.html"],
+  "files_modified": [],
   "decisions": [
     {
-      "what": "Preserved existing arvad_task_files/ entry in .gitignore",
-      "why": "The file already contained a Claude CLI task files entry; appended the new OS/editor patterns below it rather than overwriting"
+      "what": "Button grid layout: 4 columns with rows C/⌫/÷/×, 7-9/−, 4-6/+, 1-3/=, 0/.",
+      "why": "Spec required a 4×4 grid with 5 rows; 0 spans wider column and . fills remaining slot in row 5"
     },
     {
-      "what": "Replaced brief README stub with full structured documentation",
-      "why": "Spec required sections for Project Overview, Features, Usage Instructions, Browser Compatibility, Known Limitations, Manual Testing Checklist, and Technical Details"
+      "what": "Used data-action='decimal' on the '.' button alongside data-digit attributes on digit buttons",
+      "why": "Spec requires data-action for decimal, distinct from data-digit used on numeric buttons"
+    },
+    {
+      "what": "Operator buttons use Unicode minus '−' for display but data-operator='-' for JS parsing",
+      "why": "Visual consistency with spec symbols (−, ×, ÷) while keeping machine-readable data attributes"
     }
   ],
-  "tools_used": ["Read", "Write"]
+  "tools_used": ["Read", "Write", "Edit"]
 }

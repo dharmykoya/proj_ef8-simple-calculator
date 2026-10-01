@@ -221,102 +221,95 @@ function backspace() {
   updateDisplay();
 }
 
-function handleDigit(digit) {
-  appendDigit(digit);
-}
+// --- Event Binding ---
+// All event listeners are registered inside DOMContentLoaded to ensure the DOM
+// is fully parsed before querying elements. Listeners are scoped to local variables
+// to prevent memory leaks — no global references are retained after initialization.
 
-function handleDecimal() {
-  if (state.isErrorState) return;
+document.addEventListener('DOMContentLoaded', () => {
+  // Store reference to the display element for direct access if needed
+  const display = document.getElementById('display'); // eslint-disable-line no-unused-vars
 
-  if (state.isResultDisplayed) {
-    // After a result, start a new decimal number from '0.'
-    state.currentNumber = '0.';
-    state.isResultDisplayed = false;
-    updateDisplay();
-    return;
-  }
+  // Digit buttons: each [data-digit] button appends its digit value on click.
+  // Strategy: individual listeners per button; button reference is captured in
+  // the forEach closure, so no event delegation on a parent element is needed.
+  document.querySelectorAll('[data-digit]').forEach((button) => {
+    button.addEventListener('click', () => appendDigit(button.dataset.digit));
+  });
 
-  if (!state.currentNumber.includes('.')) {
-    state.currentNumber += '.';
-    updateDisplay();
-  }
-}
+  // Operator buttons: each [data-operator] button sets the pending operator on click.
+  // The data-operator attribute holds the operator symbol passed directly to setOperator.
+  document.querySelectorAll('[data-operator]').forEach((button) => {
+    button.addEventListener('click', () => setOperator(button.dataset.operator));
+  });
 
-function handleOperator(operator) {
-  if (state.isErrorState) return;
+  // Action buttons: bound individually by their data-action value.
 
-  // Left-to-right evaluation: if there is already a pending operator,
-  // evaluate it before storing the new one.
-  if (state.pendingOperator !== null && !state.isResultDisplayed) {
-    const result = calculate(state.storedNumber, state.pendingOperator, state.currentNumber);
-    if (result === null) {
-      state.isErrorState = true;
-      state.currentNumber = 'Cannot divide by 0';
-      updateDisplay();
-      return;
+  // Equals: evaluate the pending binary operation and show the result.
+  const equalsBtn = document.querySelector('[data-action="equals"]');
+  if (equalsBtn) equalsBtn.addEventListener('click', equals);
+
+  // Clear: reset all calculator state to the initial '0' display.
+  const clearBtn = document.querySelector('[data-action="clear"]');
+  if (clearBtn) clearBtn.addEventListener('click', clear);
+
+  // Backspace: delete the last entered character from the current number.
+  const backspaceBtn = document.querySelector('[data-action="backspace"]');
+  if (backspaceBtn) backspaceBtn.addEventListener('click', backspace);
+
+  // Decimal: append a decimal point (ignored if one already exists).
+  const decimalBtn = document.querySelector('[data-action="decimal"]');
+  if (decimalBtn) decimalBtn.addEventListener('click', appendDecimal);
+
+  // Keyboard navigation:
+  // Digits 0-9       → appendDigit(key)
+  // '+'              → setOperator('+')
+  // '-'              → setOperator('−')  Unicode minus sign to match display
+  // '*'              → setOperator('×')  Unicode multiplication sign to match display
+  // '/'              → setOperator('÷')  event.preventDefault stops browser quick-find
+  // 'Enter'          → equals()          evaluate the pending operation
+  // 'Escape'         → clear()           full reset of calculator state
+  // 'Backspace'      → backspace()       remove last entered digit
+  // '.'              → appendDecimal()   insert decimal point
+  document.addEventListener('keydown', (event) => {
+    switch (event.key) {
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
+        appendDigit(event.key);
+        break;
+      case '+':
+        setOperator('+');
+        break;
+      case '-':
+        setOperator('−');
+        break;
+      case '*':
+        setOperator('×');
+        break;
+      case '/':
+        event.preventDefault();
+        setOperator('÷');
+        break;
+      case 'Enter':
+        equals();
+        break;
+      case 'Escape':
+        clear();
+        break;
+      case 'Backspace':
+        backspace();
+        break;
+      case '.':
+        appendDecimal();
+        break;
     }
-    state.storedNumber = String(result);
-    state.currentNumber = state.storedNumber;
-    updateDisplay();
-  } else {
-    state.storedNumber = state.currentNumber;
-  }
-
-  state.pendingOperator = operator;
-  state.isResultDisplayed = true;
-}
-
-// Event delegation: one listener handles all button clicks
-document.querySelector('.button-grid').addEventListener('click', function (event) {
-  const btn = event.target.closest('button');
-  if (!btn) return;
-
-  if (btn.dataset.digit !== undefined) {
-    handleDigit(btn.dataset.digit);
-    return;
-  }
-
-  if (btn.dataset.operator !== undefined) {
-    handleOperator(btn.dataset.operator);
-    return;
-  }
-
-  switch (btn.dataset.action) {
-    case 'clear':
-      clear();
-      break;
-    case 'backspace':
-      backspace();
-      break;
-    case 'equals':
-      equals();
-      break;
-    case 'decimal':
-      handleDecimal();
-      break;
-  }
-});
-
-// Keyboard support
-document.addEventListener('keydown', function (event) {
-  if (event.key >= '0' && event.key <= '9') {
-    handleDigit(event.key);
-  } else if (event.key === '.') {
-    handleDecimal();
-  } else if (event.key === '+') {
-    handleOperator('+');
-  } else if (event.key === '-') {
-    handleOperator('-');
-  } else if (event.key === '*') {
-    handleOperator('×');
-  } else if (event.key === '/') {
-    event.preventDefault();
-    handleOperator('÷');
-  } else if (event.key === 'Enter' || event.key === '=') {
-    equals();
-  } else if (event.key === 'Backspace') {
-    backspace();
-  } else if (event.key === 'Escape') {
-    clear();
-  }
+  });
 });

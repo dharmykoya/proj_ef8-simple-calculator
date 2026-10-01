@@ -83,21 +83,26 @@ function updateDisplay() {
   display.setAttribute('aria-label', `Calculator display: ${value}`);
 }
 
+// clearError recovers from error state by resetting currentNumber to '0'.
+// This is called at the start of input handlers so users can recover from
+// error conditions (e.g. division by zero) by simply entering new input.
+function clearError() {
+  if (state.isErrorState) {
+    state.currentNumber = '0';
+    state.isErrorState = false;
+  }
+}
+
 // appendDigit handles digit (0-9) input entry with leading zero suppression.
 // State transitions:
-//   isErrorState → reset all state → accept new digit
+//   isErrorState → clearError() resets currentNumber → accept new digit
 //   isResultDisplayed → reset currentNumber → start fresh input
 //   currentNumber === '0' && digit !== '0' → replace leading zero with digit
 //   currentNumber === '0' && digit === '0' → discard (no multiple leading zeros)
 //   otherwise → append digit to currentNumber
 function appendDigit(digit) {
-  // Clear error state on new digit input; reset to a clean slate
-  if (state.isErrorState) {
-    state.currentNumber = '0';
-    state.isErrorState = false;
-    state.storedNumber = null;
-    state.pendingOperator = null;
-  }
+  // Clear error state on new digit input; allows recovery without full reset
+  clearError();
 
   // Start fresh after a completed result
   if (state.isResultDisplayed) {
@@ -121,6 +126,9 @@ function appendDigit(digit) {
 // appendDecimal adds a decimal point to the current number.
 // Edge case: only one decimal point is allowed per number entry.
 function appendDecimal() {
+  // Clear error state so the user can start fresh input after an error
+  clearError();
+
   // Single decimal constraint: ignore if '.' already present in currentNumber
   if (state.currentNumber.includes('.')) return;
   state.currentNumber += '.';
@@ -130,13 +138,13 @@ function appendDecimal() {
 // performCalculation evaluates storedNumber <pendingOperator> currentNumber.
 // On success: updates currentNumber with the result, clears storedNumber and
 //   pendingOperator, and sets isResultDisplayed to true.
-// On division by zero: sets isErrorState to true and displays error message.
+// On division by zero: sets isErrorState to true and displays a descriptive error message.
 function performCalculation() {
   const result = calculate(state.storedNumber, state.pendingOperator, parseFloat(state.currentNumber));
   if (result === null) {
-    // Division by zero: enter error state; no further input is accepted
+    // Division by zero: enter error state; clearError() in input handlers enables recovery
+    state.currentNumber = 'Cannot divide by 0';
     state.isErrorState = true;
-    state.currentNumber = 'Error';
     updateDisplay();
     return;
   }
@@ -152,7 +160,8 @@ function performCalculation() {
 //   then: store parseFloat(currentNumber) as storedNumber, set new pendingOperator,
 //   reset currentNumber to '' for right-operand entry, set isResultDisplayed to false.
 function setOperator(operator) {
-  if (state.isErrorState) return;
+  // Clear error state; allows the user to recover by pressing an operator key
+  clearError();
 
   // Operator chaining: if there is already a pending operation and the user
   // has entered a right operand, evaluate it before accepting the new operator.
@@ -168,6 +177,47 @@ function setOperator(operator) {
   // Clear currentNumber so the user enters the right operand from scratch
   state.currentNumber = '';
   state.isResultDisplayed = false;
+  updateDisplay();
+}
+
+// equals evaluates the pending binary operation and displays the final result.
+// If no pendingOperator is set, returns early (nothing to calculate).
+// After calculation, isResultDisplayed is set to true so subsequent digit
+// input starts a fresh number rather than appending to the result.
+function equals() {
+  // No pending operator means there is nothing to evaluate
+  if (state.pendingOperator === null) return;
+
+  // Delegate to performCalculation which handles the arithmetic and error state
+  performCalculation();
+  // Ensure the result flag is set even if performCalculation already set it
+  state.isResultDisplayed = true;
+}
+
+// clear resets the calculator to its initial state, clearing all operands,
+// operators, flags, and the display. Recovers from error states as well.
+function clear() {
+  state.currentNumber = '0';
+  state.storedNumber = null;
+  state.pendingOperator = null;
+  state.isResultDisplayed = false;
+  state.isErrorState = false;
+  updateDisplay();
+}
+
+// backspace removes the last entered digit from currentNumber.
+// Returns early if a result is displayed (backspace does not undo calculations).
+// Falls back to '0' when removing the final remaining character.
+function backspace() {
+  // Backspace does not apply after a completed result; user must start fresh or clear
+  if (state.isResultDisplayed) return;
+
+  if (state.currentNumber.length <= 1) {
+    // Single character remaining: reset to neutral '0' state
+    state.currentNumber = '0';
+  } else {
+    state.currentNumber = state.currentNumber.slice(0, -1);
+  }
   updateDisplay();
 }
 
@@ -201,7 +251,7 @@ function handleOperator(operator) {
     const result = calculate(state.storedNumber, state.pendingOperator, state.currentNumber);
     if (result === null) {
       state.isErrorState = true;
-      state.currentNumber = 'Error';
+      state.currentNumber = 'Cannot divide by 0';
       updateDisplay();
       return;
     }
@@ -214,45 +264,6 @@ function handleOperator(operator) {
 
   state.pendingOperator = operator;
   state.isResultDisplayed = true;
-}
-
-function handleEquals() {
-  if (state.isErrorState) return;
-  if (state.pendingOperator === null || state.storedNumber === null) return;
-
-  const result = calculate(state.storedNumber, state.pendingOperator, state.currentNumber);
-  if (result === null) {
-    state.isErrorState = true;
-    state.currentNumber = 'Error';
-    updateDisplay();
-    return;
-  }
-
-  state.currentNumber = String(result);
-  state.storedNumber = null;
-  state.pendingOperator = null;
-  state.isResultDisplayed = true;
-  updateDisplay();
-}
-
-function handleClear() {
-  state.currentNumber = '0';
-  state.storedNumber = null;
-  state.pendingOperator = null;
-  state.isResultDisplayed = false;
-  state.isErrorState = false;
-  updateDisplay();
-}
-
-function handleBackspace() {
-  if (state.isErrorState || state.isResultDisplayed) return;
-
-  if (state.currentNumber.length > 1) {
-    state.currentNumber = state.currentNumber.slice(0, -1);
-  } else {
-    state.currentNumber = '0';
-  }
-  updateDisplay();
 }
 
 // Event delegation: one listener handles all button clicks
@@ -272,13 +283,13 @@ document.querySelector('.button-grid').addEventListener('click', function (event
 
   switch (btn.dataset.action) {
     case 'clear':
-      handleClear();
+      clear();
       break;
     case 'backspace':
-      handleBackspace();
+      backspace();
       break;
     case 'equals':
-      handleEquals();
+      equals();
       break;
     case 'decimal':
       handleDecimal();
@@ -302,10 +313,10 @@ document.addEventListener('keydown', function (event) {
     event.preventDefault();
     handleOperator('÷');
   } else if (event.key === 'Enter' || event.key === '=') {
-    handleEquals();
+    equals();
   } else if (event.key === 'Backspace') {
-    handleBackspace();
+    backspace();
   } else if (event.key === 'Escape') {
-    handleClear();
+    clear();
   }
 });

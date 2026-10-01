@@ -74,42 +74,121 @@ function calculate(storedNumber, operator, currentNumber) {
 
 // --- DOM interaction ---
 
-const display = document.getElementById('display');
-
-function updateDisplay(value) {
+// updateDisplay reads current display value from state.currentNumber,
+// falling back to '0' if currentNumber is empty.
+function updateDisplay() {
+  const display = document.getElementById('display');
+  const value = state.currentNumber || '0';
   display.textContent = value;
   display.setAttribute('aria-label', `Calculator display: ${value}`);
 }
 
-function handleDigit(digit) {
-  if (state.isErrorState) return;
+// appendDigit handles digit (0-9) input entry with leading zero suppression.
+// State transitions:
+//   isErrorState → reset all state → accept new digit
+//   isResultDisplayed → reset currentNumber → start fresh input
+//   currentNumber === '0' && digit !== '0' → replace leading zero with digit
+//   currentNumber === '0' && digit === '0' → discard (no multiple leading zeros)
+//   otherwise → append digit to currentNumber
+function appendDigit(digit) {
+  // Clear error state on new digit input; reset to a clean slate
+  if (state.isErrorState) {
+    state.currentNumber = '0';
+    state.isErrorState = false;
+    state.storedNumber = null;
+    state.pendingOperator = null;
+  }
 
+  // Start fresh after a completed result
   if (state.isResultDisplayed) {
-    // Start fresh after a result
-    state.currentNumber = digit;
+    state.currentNumber = '0';
     state.isResultDisplayed = false;
-  } else if (state.currentNumber === '0' && digit !== '.') {
+  }
+
+  // Leading zero suppression: replace lone '0' with the incoming non-zero digit
+  if (state.currentNumber === '0' && digit !== '0') {
     state.currentNumber = digit;
+  } else if (state.currentNumber === '0' && digit === '0') {
+    // Discard superfluous leading zero — display stays as '0'
+    return;
   } else {
     state.currentNumber += digit;
   }
 
-  updateDisplay(state.currentNumber);
+  updateDisplay();
+}
+
+// appendDecimal adds a decimal point to the current number.
+// Edge case: only one decimal point is allowed per number entry.
+function appendDecimal() {
+  // Single decimal constraint: ignore if '.' already present in currentNumber
+  if (state.currentNumber.includes('.')) return;
+  state.currentNumber += '.';
+  updateDisplay();
+}
+
+// performCalculation evaluates storedNumber <pendingOperator> currentNumber.
+// On success: updates currentNumber with the result, clears storedNumber and
+//   pendingOperator, and sets isResultDisplayed to true.
+// On division by zero: sets isErrorState to true and displays error message.
+function performCalculation() {
+  const result = calculate(state.storedNumber, state.pendingOperator, parseFloat(state.currentNumber));
+  if (result === null) {
+    // Division by zero: enter error state; no further input is accepted
+    state.isErrorState = true;
+    state.currentNumber = 'Error';
+    updateDisplay();
+    return;
+  }
+  state.currentNumber = String(result);
+  state.storedNumber = null;
+  state.pendingOperator = null;
+  state.isResultDisplayed = true;
+}
+
+// setOperator stores the selected operator and handles operator chaining.
+// State transitions:
+//   pendingOperator exists && currentNumber !== '' → evaluate pending operation first
+//   then: store parseFloat(currentNumber) as storedNumber, set new pendingOperator,
+//   reset currentNumber to '' for right-operand entry, set isResultDisplayed to false.
+function setOperator(operator) {
+  if (state.isErrorState) return;
+
+  // Operator chaining: if there is already a pending operation and the user
+  // has entered a right operand, evaluate it before accepting the new operator.
+  if (state.pendingOperator && state.currentNumber !== '') {
+    performCalculation();
+    // If performCalculation encountered an error, abort operator handling
+    if (state.isErrorState) return;
+  }
+
+  // Store the left operand for the upcoming binary operation
+  state.storedNumber = parseFloat(state.currentNumber);
+  state.pendingOperator = operator;
+  // Clear currentNumber so the user enters the right operand from scratch
+  state.currentNumber = '';
+  state.isResultDisplayed = false;
+  updateDisplay();
+}
+
+function handleDigit(digit) {
+  appendDigit(digit);
 }
 
 function handleDecimal() {
   if (state.isErrorState) return;
 
   if (state.isResultDisplayed) {
+    // After a result, start a new decimal number from '0.'
     state.currentNumber = '0.';
     state.isResultDisplayed = false;
-    updateDisplay(state.currentNumber);
+    updateDisplay();
     return;
   }
 
   if (!state.currentNumber.includes('.')) {
     state.currentNumber += '.';
-    updateDisplay(state.currentNumber);
+    updateDisplay();
   }
 }
 
@@ -122,11 +201,13 @@ function handleOperator(operator) {
     const result = calculate(state.storedNumber, state.pendingOperator, state.currentNumber);
     if (result === null) {
       state.isErrorState = true;
-      updateDisplay('Error');
+      state.currentNumber = 'Error';
+      updateDisplay();
       return;
     }
     state.storedNumber = String(result);
-    updateDisplay(state.storedNumber);
+    state.currentNumber = state.storedNumber;
+    updateDisplay();
   } else {
     state.storedNumber = state.currentNumber;
   }
@@ -142,7 +223,8 @@ function handleEquals() {
   const result = calculate(state.storedNumber, state.pendingOperator, state.currentNumber);
   if (result === null) {
     state.isErrorState = true;
-    updateDisplay('Error');
+    state.currentNumber = 'Error';
+    updateDisplay();
     return;
   }
 
@@ -150,7 +232,7 @@ function handleEquals() {
   state.storedNumber = null;
   state.pendingOperator = null;
   state.isResultDisplayed = true;
-  updateDisplay(state.currentNumber);
+  updateDisplay();
 }
 
 function handleClear() {
@@ -159,7 +241,7 @@ function handleClear() {
   state.pendingOperator = null;
   state.isResultDisplayed = false;
   state.isErrorState = false;
-  updateDisplay('0');
+  updateDisplay();
 }
 
 function handleBackspace() {
@@ -170,7 +252,7 @@ function handleBackspace() {
   } else {
     state.currentNumber = '0';
   }
-  updateDisplay(state.currentNumber);
+  updateDisplay();
 }
 
 // Event delegation: one listener handles all button clicks

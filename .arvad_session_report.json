@@ -1,1 +1,31 @@
-{"files_created": [], "files_modified": ["script.js"], "decisions": [{"what": "Added clearError() function called at start of appendDigit, appendDecimal, setOperator", "why": "Spec requires error recovery mechanism via clearError() integrated into all input handlers"}, {"what": "Added equals(), clear(), backspace() named functions replacing inline handleEquals/handleClear/handleBackspace logic", "why": "Spec explicitly requires these function names with specific control flow"}, {"what": "Changed 'Error' to 'Cannot divide by 0' in performCalculation", "why": "Spec requires descriptive error message for division by zero"}, {"what": "backspace() returns early if isResultDisplayed (not isErrorState)", "why": "Spec specifies only isResultDisplayed check; error recovery is handled by clearError()"}, {"what": "Updated event delegation and keyboard handlers to call equals(), clear(), backspace()", "why": "New named functions replace old handle* functions to match spec"}], "tools_used": ["Read", "Write"]}
+{
+  "files_created": [],
+  "files_modified": ["script.js"],
+  "decisions": [
+    {
+      "what": "Wrapped all event binding in DOMContentLoaded listener",
+      "why": "Spec requires event binding code to be scoped inside DOMContentLoaded to ensure DOM is parsed before querying elements and to prevent memory leaks"
+    },
+    {
+      "what": "Replaced event delegation (single .button-grid listener) with individual per-button listeners via forEach",
+      "why": "Spec explicitly requires querySelectorAll('[data-digit]').forEach and querySelectorAll('[data-operator]').forEach with individual addEventListener calls"
+    },
+    {
+      "what": "Replaced if/else keyboard handler with switch statement",
+      "why": "Spec explicitly requires a switch(event.key) structure for the keydown handler"
+    },
+    {
+      "what": "Used appendDigit/appendDecimal/setOperator directly in event handlers instead of handleDigit/handleDecimal/handleOperator",
+      "why": "Spec specifies appendDigit, setOperator, and appendDecimal as the functions to call from event handlers; kept existing handleDigit/handleDecimal/handleOperator functions unchanged as they were not in scope to remove"
+    },
+    {
+      "what": "setOperator('−') used for keyboard '-' key (Unicode minus sign)",
+      "why": "Spec explicitly states case '-': setOperator('−') with the Unicode minus sign character to match the display representation"
+    },
+    {
+      "what": "Stored display element reference in DOMContentLoaded scope",
+      "why": "Spec requires selecting the display element and storing a reference; kept in local closure scope to avoid global variable"
+    }
+  ],
+  "tools_used": ["Read", "Write", "Bash"]
+}
